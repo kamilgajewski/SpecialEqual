@@ -7,6 +7,8 @@
 
 using OptionalSet = std::vector<std::optional<std::string>>;
 
+enum class Result { TRUE, FALSE, UNDETERMINED };
+
 class Parse {
 private:
   std::vector<std::string> m_vec;
@@ -30,69 +32,75 @@ public:
       std::cout << i << std::endl;
     }
   }
+  void swap(Parse &lhs, std::vector<std::string> &rhs) {
+    std::vector<std::string> temp = std::move(rhs);
+    rhs = (std::move(lhs.m_vec));
+    lhs.m_vec = std::move(temp);
+  }
+
+  const std::vector<std::string> &getVec() const { return m_vec; }
+  void setVec(std::vector<std::string> newVec) { m_vec = std::move(newVec); }
 };
 
-class ParseSet {
+class ParseSet : public Parse {
 private:
   std::vector<Parse> m_set;
-  
+
 public:
-  ParseSet(std::vector<Parse> input_set): m_set(input_set){}
+  ParseSet(std::vector<Parse> input_set) : m_set(std::move(input_set)) {}
 };
-bool specialEqual(const std::vector<OptionalSet> &vecs) {
 
-  auto last_intersection = vecs[0];
-  OptionalSet curr_intersection;
+Result specialEqual(const std::vector<Parse> &set) {
 
-  auto cmp = [](auto lhs, auto rhs) {
-    if (std::is_same<decltype(rhs.value()), std::nullopt_t>::value) {
-      std::cout << "nullopt_t" << std::endl;
-      rhs.value() = 2;
-    }
-    if (std::is_same<decltype(lhs.value()), std::nullopt_t>::value) {
-      std::cout << "nullopt_t" << std::endl;
-      lhs.value() = 2;
-    }
-    return lhs < rhs;
-  };
+  Parse last_intersection = set[0];
+  std::vector<std::string> curr_intersection;
 
-  for (std::size_t i = 1; i < vecs.size(); ++i) {
-    std::set_intersection(last_intersection.begin(), last_intersection.end(),
-                          vecs[i].begin(), vecs[i].end(),
+  auto cmp = [](auto lhs, auto rhs) { return lhs < rhs; };
+
+  for (std::size_t i = 1; i < set.size(); ++i) {
+    std::set_intersection(last_intersection.getVec().begin(),
+                          last_intersection.getVec().end(),
+                          set[i].getVec().begin(), set[i].getVec().end(),
                           std::back_inserter(curr_intersection));
-    std::swap(last_intersection, curr_intersection);
+    last_intersection.swap(last_intersection, curr_intersection);
     curr_intersection.clear();
-    for (int i = 0; i < last_intersection.size(); i++) {
-      if (last_intersection[i].has_value()) {
-        std::cout << "Last intersection" << last_intersection[i].value() << ' ';
+  }
+  std::cout << "results" << std::endl;
+  for (int i = 0; i < last_intersection.getVec().size(); i++) {
+    std::cout << last_intersection.getVec()[i] << std::endl;
+  }
+  if (last_intersection.getVec().empty()) {
+    for (int j = 0; j < set.size(); j++) {
+      if (std::find(set[j].getVec().begin(), set[j].getVec().end(),
+                    std::string{"NULL"}) != set[j].getVec().end()) {
+        return Result::UNDETERMINED;
       }
     }
-  }
-  if (last_intersection.empty()) {
-    return 0;
+    return Result::FALSE;
   } else {
-    return 1;
+    return Result::TRUE;
   }
 }
 
-
 int main(int argc, char *argv[]) {
-  OptionalSet setA = {"A"};
-  OptionalSet setB = {"C", "B", std::nullopt};
-  OptionalSet setC = {"A", std::nullopt};
-  std::vector<OptionalSet> input = {setA, setB, setC};
-
+  OptionalSet setA = {"A", "B", std::nullopt}; 
+  OptionalSet setB = {"A"};
+  OptionalSet setC = {"A","C"};
   Parse parser1(setA);
   Parse parser2(setB);
   Parse parser3(setC);
-  parser3.classed_print_vector_strings();
-  
-  ParseSet set1({parser1,parser2,parser3});
-  bool result = specialEqual(input);
-  if (result == 1) {
+
+  std::vector<Parse> set1({parser1, parser2, parser3});
+  Result result = specialEqual(set1);
+  switch (result) {
+  case (Result::TRUE):
     std::cout << "TRUE" << std::endl;
-  } else {
+    break;
+  case (Result::FALSE):
     std::cout << "FALSE" << std::endl;
+    break;
+  case (Result::UNDETERMINED):
+    std::cout << "UNDETERMINED" << std::endl;
   }
   return 1;
 };
